@@ -45,6 +45,12 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', supportedStocks: SUPPORTED_STOCKS });
 });
 
+app.get('/', (req, res) => {
+    res.send('Stock Broker Backend is running');
+});
+// Start server
+
+
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
