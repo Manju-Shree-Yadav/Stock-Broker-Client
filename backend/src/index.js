@@ -28,7 +28,7 @@ app.use(express.json());
 // Socket.io setup with CORS
 const io = new Server(httpServer, {
     cors: {
-        origin: "*",
+        origin: ['*', 'https://escrow-stack-cupi-assignment-eim6.vercel.app/'],
         methods: ["GET", "POST"]
     }
 });
