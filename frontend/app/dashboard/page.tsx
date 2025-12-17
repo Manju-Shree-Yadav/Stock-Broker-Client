@@ -61,10 +61,12 @@ export default function DashboardPage() {
 
         // Initialize socket
         const newSocket = io(API_URL, {
-            transports: ['websocket'],
+            transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
+            withCredentials: false,
+            autoConnect: true,
         });
 
         newSocket.on('connect', () => {
