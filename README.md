@@ -1,6 +1,7 @@
 # Stock Broker Client Web Dashboard
 
 Real-time stock broker client dashboard for the EscrowStack CUPI assignment.
+*Note: Please check out documentation for detailed explaination of Architecture, Flow and User Manual*
 
 ## Assignment Coverage
 
