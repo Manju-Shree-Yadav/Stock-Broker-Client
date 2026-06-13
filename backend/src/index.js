@@ -3,7 +3,6 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import mongoose from 'mongoose';
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -12,23 +11,20 @@ import subscriptionRoutes from './routes/subscriptionRoutes.js';
 // Import socket handler
 import { initializeSocket, SUPPORTED_STOCKS } from './socket/socketHandler.js';
 
-// MongoDB connection
-import dbConnect from './db/dbConnect.js';
-
 const app = express();
 const httpServer = createServer(app);
 
-// MongoDB Connection
-dbConnect();
-
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true
+}));
 app.use(express.json());
 
 // Socket.io setup with CORS
 const io = new Server(httpServer, {
     cors: {
-        origin: ['*', 'https://escrow-stack-cupi-assignment-eim6.vercel.app/'],
+        origin: process.env.CLIENT_URL || 'http://localhost:5173',
         methods: ["GET", "POST"]
     }
 });

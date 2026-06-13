@@ -1,166 +1,202 @@
-# USER MANUAL (Stock Broker Dashboard)
+# User Manual
 
-## Step 1: Install MongoDB
+## Purpose
 
-### Windows
-1. Download MongoDB Community Server: https://www.mongodb.com/try/download/community
-2. Run the installer
-3. Choose "Complete" installation
-4. Install as a Windows Service (recommended)
-5. MongoDB will start automatically
+This dashboard lets stock broker clients login with an email address, subscribe to supported stock tickers, and watch live demo prices update every second.
 
-**OR use MongoDB Atlas (Cloud - Recommended for quick start):**
-1. Go to https://www.mongodb.com/cloud/atlas
-2. Sign up for free account
-3. Create a free cluster (M0)
-4. Click "Connect" → "Connect your application"
-5. Copy the connection string
-6. Update `backend/.env`:
-   ```
-   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/stock-broker
-   ```
+## Requirements
 
-## Step 2: Start the Application
+- Node.js 18 or newer
+- npm
+- No MongoDB is required
+- No external stock API key is required
 
-### Terminal 1 - Backend
+## Install and Run
+
+Open two terminals from the project root.
+
+### Terminal 1: Backend
+
 ```powershell
 cd backend
-npm start
-```
-
-You should see:
-```
-Server running on port 4000
-MongoDB connected successfully
-Supported stocks: GOOG, TSLA, AMZN, META, NVDA
-```
-
-### Terminal 2 - Frontend
-```powershell
-cd frontend
+npm install
 npm run dev
 ```
 
-You should see:
+Expected backend URL:
+
+```text
+http://localhost:4000
 ```
-  ▲ Next.js 15.x.x
-  - Local:        http://localhost:3000
+
+### Terminal 2: Frontend
+
+```powershell
+cd frontend
+npm install
+npm run dev
 ```
 
-## Step 3: Use the Application
+Expected frontend URL:
 
-1. Open browser: `http://localhost:3000`
-2. Register a new account:
-   - Email: `user1@example.com`
-   - Password: `password123`
-3. Click "Register"
-4. You'll be logged in automatically
-5. Click "Subscribe" on any stock (e.g., TSLA)
-6. Watch the price update every second!
+```text
+http://localhost:5173
+```
 
-## Step 4: Test Multi-User
+## Login
 
-1. Open a new incognito/private browser window
-2. Go to `http://localhost:3000`
-3. Register a different user:
-   - Email: `user2@example.com`
-   - Password: `password456`
-4. Subscribe to different stocks (e.g., GOOG, META)
-5. Keep both windows open side by side
-6. Watch both dashboards update independently!
+1. Open `http://localhost:5173`.
+2. Enter any valid email address, for example:
+
+```text
+alice@example.com
+```
+
+3. Click `Login`.
+
+There is no password in this assignment version. The backend creates a lightweight demo user from the email address and returns a JWT token.
+
+## Subscribe to a Stock
+
+Supported stock tickers:
+
+```text
+GOOG, TSLA, AMZN, META, NVDA
+```
+
+You can subscribe in two ways:
+
+- Click a stock in the `Available stocks` panel.
+- Type a ticker into the `Subscribe by ticker` input and click `Subscribe`.
+
+After subscribing, the stock appears in `My subscribed stocks`.
+
+## Watch Live Updates
+
+Subscribed stock cards update every second.
+
+Each card shows:
+
+- Ticker code
+- Company name
+- Current generated price
+- Price movement since the previous update
+- Last update time
+- Unsubscribe button
+
+The page does not refresh. Updates arrive through Socket.IO.
+
+## Unsubscribe
+
+Click the remove button on a subscribed stock card. The stock disappears from the active list and returns to the available list.
+
+## Test Two Users
+
+1. Open the app in a normal browser window.
+2. Login as:
+
+```text
+alice@example.com
+```
+
+3. Subscribe Alice to `GOOG`.
+4. Open an incognito/private browser window.
+5. Login as:
+
+```text
+bob@example.com
+```
+
+6. Subscribe Bob to `TSLA`.
+7. Keep both windows open.
+
+Expected behavior:
+
+- Alice sees live `GOOG` updates.
+- Bob sees live `TSLA` updates.
+- Both dashboards update asynchronously.
+- Each dashboard only receives prices for its subscribed stocks.
+
+## API Quick Reference
+
+### Login
+
+```powershell
+curl -X POST http://localhost:4000/api/auth/login `
+  -H "Content-Type: application/json" `
+  -d "{\"email\":\"alice@example.com\"}"
+```
+
+### Health Check
+
+```powershell
+curl http://localhost:4000/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "supportedStocks": ["GOOG", "TSLA", "AMZN", "META", "NVDA"]
+}
+```
+
+### Subscribe
+
+Use the JWT token returned by login.
+
+```powershell
+curl -X POST http://localhost:4000/api/subscriptions `
+  -H "Content-Type: application/json" `
+  -H "Authorization: Bearer <token>" `
+  -d "{\"ticker\":\"GOOG\"}"
+```
+
+### Get Subscriptions
+
+```powershell
+curl http://localhost:4000/api/subscriptions `
+  -H "Authorization: Bearer <token>"
+```
+
+### Unsubscribe
+
+```powershell
+curl -X DELETE http://localhost:4000/api/subscriptions/GOOG `
+  -H "Authorization: Bearer <token>"
+```
 
 ## Troubleshooting
 
-### MongoDB Connection Error
-**Error**: `MongooseServerSelectionError: connect ECONNREFUSED`
+### Frontend Cannot Connect to Backend
 
-**Solution**:
-- If using local MongoDB: Make sure MongoDB service is running
-  ```powershell
-  # Check if MongoDB is running
-  Get-Service MongoDB
-  
-  # Start MongoDB if stopped
-  Start-Service MongoDB
-  ```
-- If using MongoDB Atlas: Check your connection string in `.env`
+Make sure the backend is running:
 
-### Port Already in Use
-**Error**: `EADDRINUSE: address already in use :::4000`
-
-**Solution**:
 ```powershell
-# Find and kill the process using port 4000
-Get-Process -Id (Get-NetTCPConnection -LocalPort 4000).OwningProcess | Stop-Process
-```
-
-### Frontend Can't Connect
-**Error**: Socket.io connection failed
-
-**Solution**:
-1. Make sure backend is running first
-2. Check backend terminal for "Server running on port 4000"
-3. Verify no firewall blocking localhost:4000
-
-## Quick Test Commands
-
-### Check MongoDB is Running
-```powershell
-# Local MongoDB
-mongosh
-# Should connect successfully
-
-# Or check service
-Get-Service MongoDB
-```
-
-### Test Backend API
-```powershell
-# Health check
 curl http://localhost:4000/health
-
-# Should return: {"status":"ok","supportedStocks":["GOOG","TSLA","AMZN","META","NVDA"]}
 ```
 
-### Test Registration
-```powershell
-curl -X POST http://localhost:4000/api/register `
-  -H "Content-Type: application/json" `
-  -d '{"email":"test@example.com","password":"test123"}'
+### Port 4000 Already in Use
 
-# Should return JWT token
-```
+Stop the process using the port or start the backend with another `PORT` environment variable.
 
-## What to Expect
+### Port 5173 Already in Use
 
-### Backend Console
-```
-MongoDB connected successfully
-Server running on port 4000
-Supported stocks: GOOG, TSLA, AMZN, META, NVDA
-Client connected: xZy123...
-User authenticated: user1@example.com
-```
+Stop the process using the port or let Vite choose another available port.
 
-### Frontend
-- Login/Register page with email and password fields
-- After login: Dashboard with 5 stock cards
-- Subscribe button on each stock
-- Real-time price updates (every second)
-- Visual indicators (up/down arrows)
-- Logout button in header
+### Subscriptions Disappear After Restart
+
+This is expected. The assignment implementation stores users and subscriptions in memory, so data resets when the backend restarts.
 
 ## Success Checklist
 
-- [ ] MongoDB is running (local or Atlas)
-- [ ] Backend started successfully on port 4000
-- [ ] Frontend started successfully on port 3000
-- [ ] Can register a new user
-- [ ] Can login with registered user
-- [ ] Can subscribe to stocks
-- [ ] Prices update every second
-- [ ] Can unsubscribe from stocks
-- [ ] Can test with multiple users simultaneously
-- [ ] Subscriptions persist after logout/login
-
-If all items are checked, congratulations! Your Stock Broker Dashboard is working perfectly! 🎉
+- Backend starts successfully.
+- Frontend starts successfully.
+- Login works with email only.
+- Supported stocks list shows five tickers.
+- Subscribe works.
+- Unsubscribe works.
+- Live prices update every second.
+- Two users can use the app at the same time.
+- Each user receives only their subscribed stock updates.

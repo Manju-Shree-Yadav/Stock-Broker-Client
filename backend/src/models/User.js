@@ -1,40 +1,31 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+const users = new Map();
 
-const userSchema = new mongoose.Schema({
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true,
-        trim: true
-    },
-    password: {
-        type: String,
-        required: true
-    },
-    subscriptions: [{
-        type: String,
-        enum: ['GOOG', 'TSLA', 'AMZN', 'META', 'NVDA', 'AAPL', 'MSFT', 'NFLX', 'BABA', 'INTC'
-        ]
-    }],
-    createdAt: {
-        type: Date,
-        default: Date.now
+function normalizeEmail(email) {
+    return String(email || '').trim().toLowerCase();
+}
+
+function getOrCreateUser(email) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!users.has(normalizedEmail)) {
+        users.set(normalizedEmail, {
+            id: normalizedEmail,
+            email: normalizedEmail,
+            subscriptions: []
+        });
     }
-});
 
-// Hash password before saving
-userSchema.pre('save', async function () {
-    if (!this.isModified('password')) return;
+    return users.get(normalizedEmail);
+}
 
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-});
+function getUser(email) {
+    return users.get(normalizeEmail(email));
+}
 
-// Method to compare password
-userSchema.methods.comparePassword = async function (candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
-};
+function updateUserSubscriptions(email, subscriptions) {
+    const user = getOrCreateUser(email);
+    user.subscriptions = subscriptions;
+    return user;
+}
 
-export default mongoose.model('User', userSchema);
+export { getOrCreateUser, getUser, updateUserSubscriptions };

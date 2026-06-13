@@ -1,25 +1,25 @@
 {
-  "name": "backend",
+  "name": "stock-broker-dashboard-backend",
   "version": "1.0.0",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --check src/index.js && node --check src/socket/socketHandler.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Node.js and Socket.IO backend for a stock broker client dashboard.",
   "dependencies": {
-    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.0.1",
-    "nodemon": "^3.1.11",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   }
 }

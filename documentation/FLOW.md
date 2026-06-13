@@ -1,287 +1,198 @@
-# Complete Setup Verification
+# Application Flow and Verification
 
-## Backend Structure (ES6 Modules)
+## Runtime Flow
 
-```
-backend/
-├── src/
-│   ├── index.js                         # Main server (ES6)
-│   ├── controllers/
-│   │   ├── authController.js            # Auth logic (ES6)
-│   │   └── subscriptionController.js    # Subscription logic (ES6)
-│   ├── data/
-│   │   └── stocks.js                    # Supported stocks and initial prices
-│   ├── middleware/
-│   │   └── authMiddleware.js            # JWT middleware (ES6)
-│   ├── models/
-│   │   └── User.js                      # User model (ES6)
-│   ├── routes/
-│   │   ├── authRoutes.js                # Auth endpoints (ES6)
-│   │   └── subscriptionRoutes.js        # Subscription endpoints (ES6)
-│   └── socket/
-│       └── socketHandler.js             # Socket.io logic (ES6)
-├── .env                                 # Environment variables
-└── package.json                         # type: "module"
+The app has two running services:
+
+```text
+React/Vite frontend: http://localhost:5173
+Node backend:        http://localhost:4000
 ```
 
-## Frontend Structure (Next.js + TypeScript)
-
-```
-frontend/
-├── app/
-│   ├── dashboard/
-│   │   └── page.tsx                     # Dashboard page
-│   ├── login/
-│   │   └── page.tsx                     # Login page
-│   ├── register/
-│   │   └── page.tsx                     # Register page
-│   ├── layout.tsx                       # Root layout
-│   └── globals.css                      # Global styles
-├── components/
-│   ├── custom/
-│   │   └── Loader.tsx                   # Loading component
-│   └── ui/                              # ShadcnUI components
-│       ├── button.tsx
-│       ├── card.tsx
-│       ├── input.tsx
-│       └── badge.tsx
-├── config/
-│   └── api.ts                           # API configuration
-├── data/
-│   └── stocks.ts                        # Supported stocks list
-└── lib/
-    ├── api/
-    │   ├── auth.ts                      # Auth API functions
-    │   └── subscriptions.ts             # Subscription API functions
-    └── utils.ts                         # Utilities
-```
-
-## API Endpoints Mapping
-
-### Authentication
-| Frontend Function | Backend Route | Controller |
-|------------------|---------------|------------|
-| `loginUser(credentials)` | `POST /api/auth/login` | `authController.login` |
-| `registerUser(credentials)` | `POST /api/auth/register` | `authController.register` |
-
-### Subscriptions (Protected)
-| Frontend Function | Backend Route | Controller |
-|------------------|---------------|------------|
-| `getSubscriptions(token)` | `GET /api/subscriptions` | `subscriptionController.getSubscriptions` |
-| `subscribeToStock(ticker, token)` | `POST /api/subscriptions` | `subscriptionController.subscribe` |
-| `unsubscribeFromStock(ticker, token)` | `DELETE /api/subscriptions/:ticker` | `subscriptionController.unsubscribe` |
-
-## Socket.io Events Mapping
-
-### Frontend → Backend
-| Event | Handler | Purpose |
-|-------|---------|---------|
-| `authenticate` | `socketHandler.js` | Authenticate user with JWT |
-
-### Backend → Frontend
-| Event | Frontend Handler | Purpose |
-|-------|-----------------|---------|
-| `auth-success` | Socket event listener | User authenticated successfully |
-| `auth-error` | Socket event listener | Authentication failed |
-| `stock-update` | Socket event listener | Real-time price updates (1s interval) |
-| `connect_error` | Socket event listener | Socket connection error |
-
-## Data Flow
-
-### 1. User Registration/Login
-```
-User Input (Login/Register Page)
-    ↓
-loginUser(credentials) or registerUser(credentials)
-    ↓
-API function → fetch(`/api/auth/${register|login}`)
-    ↓
-authController.{register|login} (Backend)
-    ↓
-MongoDB: Create/Find User
-    ↓
-Generate JWT Token
-    ↓
-Response: { token, user }
-    ↓
-localStorage.setItem('token', token)
-localStorage.setItem('userEmail', user.email)
-    ↓
-Redirect to /dashboard
-    ↓
-Dashboard initializes Socket.io connection
-```
-
-### 2. Socket Authentication
-```
-io.connect(API_URL)
-    ↓
-socket.emit('authenticate', token)
-    ↓
-socketHandler verifies JWT
-    ↓
-Load user subscriptions from MongoDB
-    ↓
-socket.emit('auth-success', { subscriptions })
-    ↓
-Frontend: setSubscriptions(subscriptions), setIsLoading(false)
-```
-
-### 3. Stock Subscription
-```
-handleSubscribe(ticker)
-    ↓
-subscribeToStock(ticker, token) API function
-    ↓
-fetch(`/api/subscriptions`, { method: 'POST', body: { ticker } })
-    ↓
-subscriptionController.subscribe
-    ↓
-user.subscriptions.push(ticker) → MongoDB save
-    ↓
-Response: { subscriptions: [...] }
-    ↓
-Frontend: setSubscriptions(subscriptions)
-    ↓
-socket.emit('update-subscriptions')
-```
-
-### 4. Real-time Price Updates
-```
-Backend setInterval (1000ms)
-    ↓
-Generate random price changes (±1%) for all stocks
-    ↓
-For each connected socket:
-    ↓
-Get user session from userSessions Map
-    ↓
-Emit prices for ALL stocks (not filtered by subscription)
-    ↓
-socket.emit('stock-update', { ticker, price, timestamp })
-    ↓
-Frontend: Updates stockPrices Map with new price
-    ↓
-Calculates change from previous price
-    ↓
-React re-renders with new prices and visual indicators
-```
-
-## State Management
-
-### Frontend State (Dashboard)
-| State | Type | Purpose |
-|-------|------|---------|
-| `socketRef` | useRef<Socket> | Socket.io connection reference |
-| `userEmail` | string | User email from localStorage |
-| `token` | string | JWT token from localStorage |
-| `subscriptions` | string[] | User's subscribed stocks |
-| `stockPrices` | Map<string, StockPrice> | Current prices with change |
-| `newTicker` | string | Input for new subscription |
-| `error` | string | Error message |
-| `success` | string | Success message |
-| `isLoading` | boolean | Loading state |
-
-### Backend State
-| State | Type | Purpose |
-|-------|------|---------|
-| `userSessions` | Map<socketId, session> | Socket connections with user data |
-| `stockPrices` | Object | Current stock prices (10 stocks) |
-
-## Environment Variables
-
-### Backend (.env)
-```env
-MONGODB_URI=mongodb://localhost:27017/stock-broker
-JWT_SECRET=your-secret-key-change-this-in-production
-JWT_EXPIRE=7d
-PORT=4000
-```
-
-### Frontend (config/api.ts)
-```typescript
-export const API_URL = 'http://localhost:4000';
-export const API_ENDPOINTS = {
-    auth: {
-        login: `${API_URL}/api/auth/login`,
-        register: `${API_URL}/api/auth/register`,
-    },
-    subscriptions: {
-        base: `${API_URL}/api/subscriptions`,
-        delete: (ticker: string) => `${API_URL}/api/subscriptions/${ticker}`,
-    },
-};
-```
-
-## Security Features
-
-1. **Password Hashing**: bcrypt with 10 salt rounds
-2. **JWT Tokens**: 7-day expiry
-3. **Protected Routes**: Auth middleware on subscription endpoints
-4. **Socket Authentication**: JWT verification on connect
-5. **CORS Configuration**: Restricted to localhost:3000
-
-## Error Handling
-
-### Frontend
-- Network errors (fetch failures)
-- Socket connection errors
-- Authentication errors (invalid credentials)
-- Subscription errors (already subscribed, invalid ticker)
-- Visual error messages displayed to user
-
-### Backend
-- MongoDB connection errors
-- Validation errors (missing fields, invalid data)
-- Authentication errors (invalid token, user not found)
-- Database errors (duplicate email, save failures)
-- Detailed error logs in console
-
-## Supported Stocks
-
-The application supports 10 stocks with real-time price updates:
-- GOOG (Google)
-- TSLA (Tesla)
-- AMZN (Amazon)
-- META (Meta)
-- NVDA (NVIDIA)
-- AAPL (Apple)
-- MSFT (Microsoft)
-- NFLX (Netflix)
-- BABA (Alibaba)
-- INTC (Intel)
-
-## Final Checklist
-
-- Backend uses ES6 modules (`type: "module"`)
-- Frontend uses TypeScript with proper types
-- API functions separated in lib/api/ folder
-- API configuration centralized in config/api.ts
-- Multi-page structure (login, register, dashboard)
-- Socket.io events properly handled
-- JWT authentication implemented
-- MongoDB connection configured
-- Password hashing enabled
-- Real-time price updates working (1 second interval)
-- Subscription persistence in database
-- Error handling on both sides
-- Loading states with animated components
-- Light mode theme implemented
-- React hooks properly used
-- CORS configured correctly
+The frontend uses REST calls for user actions and Socket.IO for live price updates.
 
 ## Start the Application
 
+Backend:
+
 ```powershell
-# Terminal 1 - Backend
 cd backend
-npm start
-
-# Terminal 2 - Frontend
-cd frontend
+npm install
 npm run dev
-
-# Open http://localhost:3000
 ```
 
-The application is now fully functional with authentication, real-time stock prices, and subscription management.
+Frontend:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+## Login Flow
+
+1. User enters an email address.
+2. React calls `POST /api/auth/login`.
+3. Backend creates or loads the in-memory user.
+4. Backend returns a JWT token and user object.
+5. React stores the token and email in `localStorage`.
+6. React loads subscriptions using `GET /api/subscriptions`.
+7. React opens a Socket.IO connection.
+8. React emits `authenticate` with the JWT token.
+9. Backend emits `auth-success`.
+
+## Subscribe Flow
+
+1. User clicks a supported ticker or types one manually.
+2. React calls `POST /api/subscriptions`.
+3. Backend validates that the ticker is one of:
+
+```text
+GOOG, TSLA, AMZN, META, NVDA
+```
+
+4. Backend adds the ticker to that user's in-memory subscription list.
+5. Backend returns the updated subscription list.
+6. React updates the dashboard.
+7. React emits `update-subscriptions` to Socket.IO.
+8. Backend refreshes the socket session's subscribed tickers.
+9. The socket starts sending that ticker's live prices.
+
+## Unsubscribe Flow
+
+1. User clicks the remove button on a subscribed stock card.
+2. React calls `DELETE /api/subscriptions/:ticker`.
+3. Backend removes the ticker from the user.
+4. React removes the stock card and clears its price from state.
+5. React emits `update-subscriptions`.
+6. Backend stops sending that ticker to that user's socket.
+
+## Live Price Flow
+
+Every second, the backend:
+
+1. Generates a new random price for each supported stock.
+2. Checks all authenticated socket sessions.
+3. Sends each connected user only their subscribed stocks.
+4. React receives `stock-update`.
+5. React calculates the price change from the previous value.
+6. The stock card updates without refreshing the page.
+
+## Multi-User Flow
+
+To prove the assignment requirement:
+
+1. Open `http://localhost:5173` in a normal browser window.
+2. Login as `alice@example.com`.
+3. Subscribe Alice to `GOOG`.
+4. Open an incognito/private browser window.
+5. Login as `bob@example.com`.
+6. Subscribe Bob to `TSLA`.
+7. Keep both dashboards open side by side.
+
+Expected result:
+
+- Alice receives live updates for `GOOG`.
+- Bob receives live updates for `TSLA`.
+- Neither user receives the other user's unsubscribed ticker.
+- Both dashboards update every second without page refresh.
+
+## API Endpoint Summary
+
+| Purpose | Method | Endpoint | Auth |
+| --- | --- | --- | --- |
+| Health check | GET | `/health` | No |
+| Email login | POST | `/api/auth/login` | No |
+| Register-compatible login | POST | `/api/auth/register` | No |
+| Get subscriptions | GET | `/api/subscriptions` | Bearer token |
+| Subscribe | POST | `/api/subscriptions` | Bearer token |
+| Unsubscribe | DELETE | `/api/subscriptions/:ticker` | Bearer token |
+
+## Socket Event Summary
+
+| Direction | Event | Purpose |
+| --- | --- | --- |
+| Client to server | `authenticate` | Authenticate socket with JWT |
+| Client to server | `update-subscriptions` | Refresh socket subscription set |
+| Server to client | `auth-success` | Confirm socket authentication |
+| Server to client | `auth-error` | Report invalid socket auth |
+| Server to client | `stock-update` | Send live subscribed stock price |
+
+## Verification Commands
+
+Backend syntax check:
+
+```powershell
+cd backend
+npm test
+```
+
+Frontend production build:
+
+```powershell
+cd frontend
+npm run build
+```
+
+Backend health check:
+
+```powershell
+curl http://localhost:4000/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "supportedStocks": ["GOOG", "TSLA", "AMZN", "META", "NVDA"]
+}
+```
+
+## Common Issues
+
+### Backend Not Running
+
+Symptom:
+
+```text
+Failed to fetch
+```
+
+Fix:
+
+```powershell
+cd backend
+npm run dev
+```
+
+### Frontend Port Is Busy
+
+Vite defaults to port `5173`. Stop the process using that port or run Vite on another port.
+
+### Socket Is Disconnected
+
+Make sure:
+
+- Backend is running on `http://localhost:4000`.
+- Frontend was started after dependencies were installed.
+- The browser has a valid token from email login.
+
+## Final Checklist
+
+- Backend runs on port `4000`.
+- Frontend runs on port `5173`.
+- Login works with email only.
+- Five supported stocks are available.
+- User can subscribe by ticker.
+- User can unsubscribe.
+- Prices update every second.
+- No page refresh is required.
+- Two users can subscribe to different stocks at the same time.
+- Each user only receives their own subscribed stock updates.
