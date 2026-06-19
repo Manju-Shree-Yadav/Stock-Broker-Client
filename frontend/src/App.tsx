@@ -1,5 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   BellPlus,
@@ -14,7 +13,7 @@ import {
   UserRound
 } from 'lucide-react';
 import {
-  API_URL,
+  getPrices,
   getSubscriptions,
   login,
   subscribeToStock,
@@ -37,7 +36,6 @@ const STOCK_NAMES: Record<string, string> = {
 };
 
 function App() {
-  const socketRef = useRef<Socket | null>(null);
   const [email, setEmail] = useState(localStorage.getItem('stockUserEmail') || '');
   const [loginEmail, setLoginEmail] = useState('');
   const [token, setToken] = useState(localStorage.getItem('stockToken') || '');
@@ -78,49 +76,38 @@ function App() {
         if (isMounted) setIsBooting(false);
       });
 
-    const socket = io(API_URL, {
-      transports: ['websocket', 'polling']
-    });
+    async function refreshPrices() {
+      try {
+        const data = await getPrices(token);
 
-    socket.on('connect', () => {
-      setStatus('Connected to live price stream');
-      socket.emit('authenticate', token);
-    });
+        if (!isMounted) return;
 
-    socket.on('auth-success', (data: { email: string; subscriptions: string[]; supportedStocks: string[] }) => {
-      setEmail(data.email);
-      setSubscriptions(data.subscriptions);
-      setSupportedStocks(data.supportedStocks);
-      setStatus(`Streaming ${data.subscriptions.length} subscribed ticker${data.subscriptions.length === 1 ? '' : 's'}`);
-    });
+        setPrices((currentPrices) => {
+          const nextPrices = { ...currentPrices };
 
-    socket.on('auth-error', (payload: { error: string }) => {
-      setError(payload.error || 'Socket authentication failed');
-      handleLogout();
-    });
+          data.prices.forEach((price) => {
+            const previous = currentPrices[price.ticker];
+            nextPrices[price.ticker] = {
+              ...price,
+              change: previous ? price.price - previous.price : 0
+            };
+          });
 
-    socket.on('stock-update', (data: StockPrice) => {
-      setPrices((currentPrices) => {
-        const previous = currentPrices[data.ticker];
-        return {
-          ...currentPrices,
-          [data.ticker]: {
-            ...data,
-            change: previous ? data.price - previous.price : 0
-          }
-        };
-      });
-    });
+          return nextPrices;
+        });
+        setStatus(`Live polling ${data.prices.length} subscribed ticker${data.prices.length === 1 ? '' : 's'}`);
+      } catch (err) {
+        if (!isMounted) return;
+        setStatus('Live update interrupted. Retrying');
+      }
+    }
 
-    socket.on('disconnect', () => {
-      setStatus('Disconnected. Reconnecting when server is available');
-    });
-
-    socketRef.current = socket;
+    refreshPrices();
+    const priceInterval = window.setInterval(refreshPrices, 1000);
 
     return () => {
       isMounted = false;
-      socket.close();
+      window.clearInterval(priceInterval);
     };
   }, [token]);
 
@@ -147,8 +134,9 @@ function App() {
 
     try {
       const data = await subscribeToStock(token, ticker);
+      localStorage.setItem('stockToken', data.token);
+      setToken(data.token);
       setSubscriptions(data.subscriptions);
-      socketRef.current?.emit('update-subscriptions');
       setStatus(`Subscribed to ${ticker}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not subscribe');
@@ -170,13 +158,14 @@ function App() {
 
     try {
       const data = await unsubscribeFromStock(token, ticker);
+      localStorage.setItem('stockToken', data.token);
+      setToken(data.token);
       setSubscriptions(data.subscriptions);
       setPrices((currentPrices) => {
         const nextPrices = { ...currentPrices };
         delete nextPrices[ticker];
         return nextPrices;
       });
-      socketRef.current?.emit('update-subscriptions');
       setStatus(`Unsubscribed from ${ticker}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not unsubscribe');
@@ -184,7 +173,6 @@ function App() {
   }
 
   function handleLogout() {
-    socketRef.current?.close();
     localStorage.removeItem('stockToken');
     localStorage.removeItem('stockUserEmail');
     setToken('');

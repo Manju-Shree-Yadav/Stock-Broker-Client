@@ -1,7 +1,4 @@
-import jwt from 'jsonwebtoken';
-import { getUser } from '../models/User.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'stock-dashboard-demo-secret';
+import { verifyToken } from '../utils/token.js';
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -11,14 +8,13 @@ const authMiddleware = async (req, res, next) => {
             return res.status(401).json({ error: 'No authentication token provided' });
         }
 
-        const decoded = jwt.verify(token, JWT_SECRET);
-        const user = getUser(decoded.email);
+        const decoded = verifyToken(token);
 
-        if (!user) {
-            return res.status(401).json({ error: 'User not found' });
-        }
-
-        req.user = user;
+        req.user = {
+            id: decoded.email,
+            email: decoded.email,
+            subscriptions: Array.isArray(decoded.subscriptions) ? decoded.subscriptions : []
+        };
         req.token = token;
         next();
     } catch (error) {

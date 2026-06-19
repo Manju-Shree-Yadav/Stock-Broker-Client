@@ -1,39 +1,48 @@
-# Stock Broker Client Web Dashboard
+# Stock Broker Client Dashboard
 
-Real-time stock broker client dashboard for the EscrowStack CUPI assignment.
+A Vercel-deployed React and Node.js dashboard for tracking generated stock prices in real time.
+
+## Live Application
+
+[Open the production dashboard](https://stock-broker-client-assessment.vercel.app)
 
 **Note: Please check out documentation for detailed explaination of Architecture, Flow and User Manual**
 
 ## Assignment Coverage
 
-- Login with an email address.
-- Subscribe to supported stock tickers by code.
-- Supports exactly five demo stocks: `GOOG`, `TSLA`, `AMZN`, `META`, `NVDA`.
-- Updates subscribed stock prices every second without refreshing the dashboard.
-- Supports multiple users at the same time. Each user only receives live updates for the stocks they subscribed to.
+- Email-only client login.
+- Subscribe and unsubscribe by stock ticker.
+- Supports `GOOG`, `TSLA`, `AMZN`, `META`, and `NVDA`.
+- Prices update every second without refreshing the page.
+- Multiple browser sessions can maintain different subscriptions and update independently.
 
 ## Tech Stack
 
-**Frontend**
+Frontend:
 
-- React.js with TypeScript
+- React 19 and TypeScript
 - Vite
-- Socket.IO client
-- Plain responsive CSS
+- Lucide icons
+- Responsive CSS
+- One-second authenticated HTTP polling
 
-**Backend**
+Backend:
 
 - Node.js
-- Express.js
-- Socket.IO
-- JWT for lightweight email-session tokens
-- In-memory users and subscriptions for a simple assignment demo
+- Express 5
+- JWT authentication
+- Vercel Functions
+- Stateless JWT-backed subscriptions
 
-## Quick Start
+## Architecture
 
-Open two terminals from the project root.
+The React app and Express API are deployed together on Vercel. Subscription state is embedded in a refreshed JWT, so serverless function cold starts do not lose the active browser session.
 
-**Backend**
+The frontend calls `GET /api/prices` every second. The endpoint reads the authenticated user's subscriptions from the JWT and returns generated prices only for those tickers.
+
+## Local Development
+
+Backend:
 
 ```bash
 cd backend
@@ -41,9 +50,7 @@ npm install
 npm run dev
 ```
 
-Backend runs at `http://localhost:4000`.
-
-**Frontend**
+Frontend:
 
 ```bash
 cd frontend
@@ -51,17 +58,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs at `http://localhost:5173`.
-
-## Demo Flow
-
-1. Open `http://localhost:5173`.
-2. Login with any email, for example `alice@example.com`.
-3. Subscribe to `GOOG` or another supported ticker.
-4. Open a second browser or incognito window.
-5. Login as another email, for example `bob@example.com`.
-6. Subscribe Bob to a different ticker such as `TSLA`.
-7. Both dashboards update every second, independently, without refresh.
+Open `http://localhost:5173`. Vite proxies `/api` requests to `http://localhost:4000`.
 
 ## Verification
 
@@ -71,10 +68,13 @@ npm test
 ```
 
 ```bash
-cd frontend
 npm run build
 ```
 
-## Notes
+## Deployment
 
-This project intentionally uses generated demo prices rather than a live market API, as allowed by the assignment. Data is stored in memory, so users and subscriptions reset when the backend restarts.
+```bash
+npx vercel deploy --prod
+```
+
+The deployment configuration is defined in `vercel.json`. The root `api/index.js` exports the Express application as a Vercel Function.

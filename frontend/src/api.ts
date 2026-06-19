@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -26,8 +26,15 @@ export type AuthResponse = {
 };
 
 export type SubscriptionResponse = {
+  token: string;
   subscriptions: string[];
   supportedStocks: string[];
+};
+
+export type StockPrice = {
+  ticker: string;
+  price: number;
+  timestamp: number;
 };
 
 export function login(email: string) {
@@ -58,6 +65,14 @@ export function subscribeToStock(token: string, ticker: string) {
 export function unsubscribeFromStock(token: string, ticker: string) {
   return request<SubscriptionResponse>(`/api/subscriptions/${ticker}`, {
     method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+}
+
+export function getPrices(token: string) {
+  return request<{ prices: StockPrice[] }>('/api/prices', {
     headers: {
       Authorization: `Bearer ${token}`
     }
